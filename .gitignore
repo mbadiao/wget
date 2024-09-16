@@ -1,0 +1,5 @@
+# Ignore tout ce qui se trouve dans le dossier testDownload
+TestDownload/
+
+# Facultatif : Si vous voulez garder le dossier mais ignorer son contenu
+ !TestDownload/.gitkeep
