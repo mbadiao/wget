@@ -33,22 +33,30 @@ func (pb *ProgressBar) Write(p []byte) (int, error) {
 // cette fonction met à jour la barre de progression en affichant dans ce format : nom du fichier, pourcentage, barre, taille totale, vitesse, temps restant
 func (pb *ProgressBar) update() {
 	now := time.Now()
+
+	//cette condition nous permet d'eviter les mis à jour
+	//  trop fréquent soit < a 1/10 de seconde
 	if now.Sub(pb.LastTime) < time.Second/10 {
 		return
 	}
 	pb.LastTime = now
 
+	//regle de 3 pour obtenir le % de téléchargement terminer
 	percent := int(float64(pb.Current) / float64(pb.Total) * 100)
 	if pb.Current >= pb.Total {
 		percent = 100
 	}
 
+	//calcule le temps ecoulé depuis le dubut (temps actuelle - debut)
 	elapsed := now.Sub(pb.StartTime).Seconds()
 
+	// vitesse = longueur / temps
 	speed := float64(pb.Current) / elapsed / 1048576
 
+	// estime le temps restant (nbr d'octets restant / vitesse) convertit en temps 
 	remaining := time.Duration(float64(pb.Total-pb.Current) / speed * float64(time.Second))
-
+	
+	//1048576 octets correspond a 1Mo
 	totalMB := float64(pb.Total) / 1048576
 
 	barWidth := 100
