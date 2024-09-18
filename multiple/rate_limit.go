@@ -30,7 +30,7 @@ func (r *RateLimitedReader) Read(p []byte) (n int, err error) {
 	return n, err
 }
 
-// lorsquon a comme flag rate-limit on verifie si l'unité est en kilobytes ou megabytes
+// lorsqu'on a comme flag rate-limit on verifie si l'unité est en kilobytes ou megabytes
 func ParseRateLimit(rateLimitStr string) (int, error) {
 	// Vérifier si l'unité est en kilobytes ou megabytes
 	if strings.HasSuffix(rateLimitStr, "k") || strings.HasSuffix(rateLimitStr, "K") {

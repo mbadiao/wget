@@ -34,7 +34,7 @@ func main() {
 	// Manually parse custom flags before flag.Parse()
 	rejectFiles, excludeDirs := parseCustomFlags()
 
-	fmt.Println("rejecteddddddddddddddd", rejectFiles, excludeDirs)
+	// fmt.Println("rejecteddddddddddddddd", rejectFiles, excludeDirs)
 	// Parse standard flags using utils.ParseFlags()
 	flags, err := utils.ParseFlags()
 	utils.CheckError(err, "Erreur lors du parsing des flags")
@@ -90,7 +90,7 @@ func main() {
 
 	// Concurrent downloading with a wait group
 	var wg sync.WaitGroup
-	fmt.Println("rejected", rejected, "excluded",excluded)
+	// fmt.Println("rejected", rejected, "excluded",excluded)
 	for _, url := range flags.URLs {
 		if !downloader.ShouldReject(url, rejected) || !downloader.ShouldExclude(url, excluded) {
 			wg.Add(1)

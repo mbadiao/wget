@@ -43,7 +43,6 @@ package utils
 
 import (
 	"flag"
-	"fmt"
 	"tidy/multiple"
 )
 
@@ -83,7 +82,7 @@ func ParseFlags() (*Flags, error) {
 	flags.ExcludeDirs = *excludeFlag
 
 	// Parse reject and exclude flags
-	fmt.Println("herer", flags.RejectFiles)
+	// fmt.Println("herer", flags.RejectFiles)
 
 	// if *rejectFlag != "" {
 	// 	flags.RejectFiles = strings.Split(*rejectFlag, ",")

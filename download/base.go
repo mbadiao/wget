@@ -65,10 +65,8 @@ func (d *Downloader) Download(url string) error {
 		return fmt.Errorf("erreur lors de la création de la requête : %v", err)
 	}
 
-	//configuration de l'En-tête User-Agent
 	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36")
 
-	//envoi de la requête HTTP
 	resp, err := client.Do(req)
 	if err != nil {
 		return fmt.Errorf("erreur lors de la requête HTTP : %v", err)
@@ -82,14 +80,13 @@ func (d *Downloader) Download(url string) error {
 	fileName := filepath.Base(url)
 	filePath := filepath.Join(d.DestDir, fileName)
 
-	// Creation du fichier
 	out, err := os.Create(filePath)
 	if err != nil {
 		return fmt.Errorf("erreur lors de la création du fichier : %v", err)
 	}
 	defer out.Close()
 
-	progressBar := NewProgressBar(resp.ContentLength, fileName)
+	progressBar := NewProgressBar(resp.ContentLength, fileName, float64(d.RateLimit*1024))
 
 	var reader io.Reader = resp.Body
 	if d.RateLimit > 0 {
@@ -103,6 +100,8 @@ func (d *Downloader) Download(url string) error {
 	if err != nil {
 		return fmt.Errorf("erreur lors de la copie du contenu : %v", err)
 	}
+
+	progressBar.Finish() // Appel de la nouvelle méthode Finish()
 
 	endTime := time.Now()
 
@@ -123,7 +122,7 @@ func (d *Downloader) Download(url string) error {
 // }
 
 func (d *Downloader) ShouldReject(path string, rejectedpath []string) bool {
-	fmt.Println("fjdksqlm", d.RejectFiles)
+	// fmt.Println("fjdksqlm", d.RejectFiles)
 	for _, ext := range rejectedpath {
 		if strings.HasSuffix(path, ext) {
 			return true
@@ -378,7 +377,7 @@ func (d *Downloader) downloadRecursive(urlStr, destDir string, visited map[strin
 	return nil
 }
 
-func (d *Downloader) CheckIfDirectory(path string, temp map[string]bool ) bool {
+func (d *Downloader) CheckIfDirectory(path string, temp map[string]bool) bool {
 	response, err := http.Get(path)
 	if err != nil {
 		return false
