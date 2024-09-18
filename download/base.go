@@ -20,11 +20,24 @@ func NewDownloader(destDir string) *Downloader {
 func (d *Downloader) Download(url string) error {
 	startTime := time.Now()
 
-	resp, err := http.Get(url)
+	client := &http.Client{
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			return nil 
+		},
+	}
+
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return fmt.Errorf("erreur lors de la création de la requête : %v", err)
+	}
+
+	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36")
+
+	resp, err := client.Do(req)
 	if err != nil {
 		return fmt.Errorf("erreur lors de la requête HTTP : %v", err)
 	}
-	defer resp.Body.Close()
+	defer resp.Body.Close() 
 
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("statut HTTP non valide : %s", resp.Status)
