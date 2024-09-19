@@ -31,19 +31,11 @@ func parseCustomFlags() ([]string, []string) {
 }
 
 func main() {
-	// Manually parse custom flags before flag.Parse()
 	rejectFiles, excludeDirs := parseCustomFlags()
 
-	// fmt.Println("rejecteddddddddddddddd", rejectFiles, excludeDirs)
-	// Parse standard flags using utils.ParseFlags()
 	flags, err := utils.ParseFlags()
 	utils.CheckError(err, "Erreur lors du parsing des flags")
 
-	// Add reject and exclude values from custom flags
-	// flags.RejectFiles = append(flags.RejectFiles, rejectFiles...)
-	// flags.ExcludeDirs = append(flags.ExcludeDirs, excludeDirs...)
-
-	// Load URLs from the input file, if provided
 	if flags.InputFile != "" {
 		file, err := os.Open(flags.InputFile)
 		utils.CheckError(err, "Erreur lors de l'ouverture du fichier")
@@ -56,7 +48,6 @@ func main() {
 		utils.CheckError(scanner.Err(), "Erreur lors de la lecture du fichier")
 	}
 
-	// Exit if no URLs are provided
 	if len(flags.URLs) == 0 {
 		utils.PrintUsageAndExit()
 	}
@@ -70,34 +61,33 @@ func main() {
 	}
 
 	var excluded []string
-
 	if flags.ExcludeDirs != "" && len(excludeDirs) == 0 {
 		excluded = strings.Split(flags.ExcludeDirs, ",")
 	} else if flags.ExcludeDirs == "" && len(excludeDirs) != 0 {
-		excluded = rejectFiles
+		excluded = excludeDirs
 		flags.ExcludeDirs = strings.Join(excluded, ",")
 	}
 
 	var namefile string
-	if flags.OutputName != ""{
+	if flags.OutputName != "" {
 		namefile = flags.OutputName
-	}else{
+	} else {
 		namefile = ""
 	}
 
-	// Initialize the downloader with the rate limit and options
-	downloader := download.NewDownloader(flags.DestDir, flags.RateLimit, flags.Mirror, flags.ConvertLinks, flags.RejectFiles, flags.ExcludeDirs, *flags)
+	var rateLimit int64
+	if flags.RateLimit != 0 {
+		rateLimit = flags.RateLimit
+	}
 
-	// Concurrent downloading with a wait group
+	downloader := download.NewDownloader(flags.DestDir, rateLimit, flags.Mirror, flags.ConvertLinks, flags.RejectFiles, flags.ExcludeDirs, *flags)
+
 	var wg sync.WaitGroup
-	// fmt.Println("rejected", rejected, "excluded",excluded)
 	for _, url := range flags.URLs {
-		if !downloader.ShouldReject(url, rejected) || !downloader.ShouldExclude(url, excluded) && len(rejected) != 0 && len(excluded) != 0{
+		if !downloader.ShouldReject(url, rejected) || !downloader.ShouldExclude(url, excluded) && len(rejected) != 0 && len(excluded) != 0 {
 			wg.Add(1)
 			go func(url string) {
 				defer wg.Done()
-
-				// Download the file using the configured downloader
 				err := downloader.Download(url, namefile)
 				if err != nil {
 					fmt.Printf("Error downloading %s: %v\n", url, err)
@@ -108,7 +98,5 @@ func main() {
 		}
 	}
 
-	// Wait for all downloads to complete
 	wg.Wait()
-	// fmt.Println("All downloads completed.")
 }

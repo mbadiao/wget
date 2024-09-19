@@ -104,17 +104,15 @@ func (d *Downloader) Download(url string, outputname string) error {
 	}
 	defer out.Close()
 
-	progressBar := NewProgressBar(resp.ContentLength, fileName, float64(d.RateLimit*1024), *d.Flags)
+	progressBar := NewProgressBar(resp.ContentLength, fileName, float64(d.RateLimit), *d.Flags)
 
 	if d.Flags != nil && d.Flags.Background {
 		context := &daemon.Context{
-			// PidFileName: "downloader.pid",
 			PidFilePerm: 0644,
 			LogFileName: "wget-log",
 			LogFilePerm: 0640,
 			WorkDir:     ".",
 			Umask:       027,
-			// Args:        []string{d.Flags.Background},
 		}
 
 		P, err := context.Reborn()
@@ -131,54 +129,31 @@ func (d *Downloader) Download(url string, outputname string) error {
 			return fmt.Errorf("failed to open log file: %v", err)
 		}
 		defer file.Close()
+	}
 
-		// logger := log.New(file, "INFO: ", log.Ldate|log.Ltime|log.Lshortfile)
-
-		var reader io.Reader = resp.Body
-		if d.RateLimit > 0 {
-			rateLimitReader := multiple.NewRateLimitedReader(resp.Body, int64(d.RateLimit*1024))
-			reader = io.TeeReader(rateLimitReader, progressBar)
-		} else {
-			reader = io.TeeReader(resp.Body, progressBar)
-		}
-
-		_, err = io.Copy(out, reader)
-		if err != nil {
-			fmt.Printf("Erreur lors de la copie du contenu : %v", err)
-			return err
-		}
-
-		progressBar.Finish()
-
-		endTime := time.Now()
-		fmt.Printf("\nDébut du téléchargement : %s\n", startTime.Format("2006-01-02 15:04:05"))
-		fmt.Printf("Fin du téléchargement : %s\n", endTime.Format("2006-01-02 15:04:05"))
-		fmt.Printf("Statut HTTP : %s\n", resp.Status)
-		fmt.Printf("Taille du fichier : %d octets (%.2f MB)\n", resp.ContentLength, float64(resp.ContentLength)/1048576)
-		fmt.Printf("Fichier sauvegardé : %s\n", filePath)
-		fmt.Println("Téléchargement terminé.")
+	var reader io.Reader
+	if d.RateLimit > 0 {
+		reader = multiple.NewRateLimitedReader(resp.Body, d.RateLimit)
 	} else {
-		var reader io.Reader = resp.Body
-		if d.RateLimit > 0 {
-			rateLimitReader := multiple.NewRateLimitedReader(resp.Body, int64(d.RateLimit*1024))
-			reader = io.TeeReader(rateLimitReader, progressBar)
-		} else {
-			reader = io.TeeReader(resp.Body, progressBar)
-		}
+		reader = resp.Body
+	}
+	reader = io.TeeReader(reader, progressBar)
 
-		_, err = io.Copy(out, reader)
-		if err != nil {
-			return fmt.Errorf("erreur lors de la copie du contenu : %v", err)
-		}
+	_, err = io.Copy(out, reader)
+	if err != nil {
+		return fmt.Errorf("erreur lors de la copie du contenu : %v", err)
+	}
 
-		progressBar.Finish()
-		endTime := time.Now()
+	progressBar.Finish()
+	endTime := time.Now()
 
-		fmt.Printf("\nDébut du téléchargement : %s\n", startTime.Format("2006-01-02 15:04:05"))
-		fmt.Printf("Fin du téléchargement : %s\n", endTime.Format("2006-01-02 15:04:05"))
-		fmt.Printf("Statut HTTP : %s\n", resp.Status)
-		fmt.Printf("Taille du fichier : %d octets (%.2f MB)\n", resp.ContentLength, float64(resp.ContentLength)/1048576)
-		fmt.Printf("Fichier sauvegardé : %s\n", filePath)
+	fmt.Printf("\nDébut du téléchargement : %s\n", startTime.Format("2006-01-02 15:04:05"))
+	fmt.Printf("Fin du téléchargement : %s\n", endTime.Format("2006-01-02 15:04:05"))
+	fmt.Printf("Statut HTTP : %s\n", resp.Status)
+	fmt.Printf("Taille du fichier : %d octets (%.2f MB)\n", resp.ContentLength, float64(resp.ContentLength)/1048576)
+	fmt.Printf("Fichier sauvegardé : %s\n", filePath)
+	if !d.Flags.Background {
+		fmt.Println("Téléchargement terminé.")
 	}
 
 	return nil

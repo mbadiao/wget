@@ -17,7 +17,7 @@ type ProgressBar struct {
 	LastTime   time.Time
 	FileName   string
 	IsComplete bool
-	RateLimit  float64 // New field to store the rate limit in bytes per second
+	RateLimit  float64
 	Flags      *utils.Flags
 }
 
@@ -57,8 +57,7 @@ func (pb *ProgressBar) update(force bool) {
 	elapsed := now.Sub(pb.StartTime).Seconds()
 	speed := float64(pb.Current) / elapsed
 
-	// Ensure the displayed speed never exceeds the rate limit
-	if speed > pb.RateLimit {
+	if pb.RateLimit > 0 && speed > pb.RateLimit {
 		speed = pb.RateLimit
 	}
 
