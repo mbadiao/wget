@@ -77,28 +77,28 @@ func main() {
 		excluded = rejectFiles
 		flags.ExcludeDirs = strings.Join(excluded, ",")
 	}
-	// Set up downloader options
-	/* options := mirror.Options{
-		Mirror:       flags.Mirror,
-		ConvertLinks: flags.ConvertLinks,
-		RejectFiles:  flags.RejectFiles,
-		ExcludeDirs:  flags.ExcludeDirs,
-	} */
+
+	var namefile string
+	if flags.OutputName != ""{
+		namefile = flags.OutputName
+	}else{
+		namefile = ""
+	}
 
 	// Initialize the downloader with the rate limit and options
-	downloader := download.NewDownloader(flags.DestDir, flags.RateLimit, flags.Mirror, flags.ConvertLinks, flags.RejectFiles, flags.ExcludeDirs)
+	downloader := download.NewDownloader(flags.DestDir, flags.RateLimit, flags.Mirror, flags.ConvertLinks, flags.RejectFiles, flags.ExcludeDirs, *flags)
 
 	// Concurrent downloading with a wait group
 	var wg sync.WaitGroup
 	// fmt.Println("rejected", rejected, "excluded",excluded)
 	for _, url := range flags.URLs {
-		if !downloader.ShouldReject(url, rejected) || !downloader.ShouldExclude(url, excluded) {
+		if !downloader.ShouldReject(url, rejected) || !downloader.ShouldExclude(url, excluded) && len(rejected) != 0 && len(excluded) != 0{
 			wg.Add(1)
 			go func(url string) {
 				defer wg.Done()
 
 				// Download the file using the configured downloader
-				err := downloader.Download(url)
+				err := downloader.Download(url, namefile)
 				if err != nil {
 					fmt.Printf("Error downloading %s: %v\n", url, err)
 				}
@@ -110,5 +110,5 @@ func main() {
 
 	// Wait for all downloads to complete
 	wg.Wait()
-	fmt.Println("All downloads completed.")
+	// fmt.Println("All downloads completed.")
 }

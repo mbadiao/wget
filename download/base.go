@@ -13,8 +13,10 @@ import (
 	"strings"
 	"sync"
 	"tidy/multiple"
+	"tidy/utils"
 	"time"
 
+	"github.com/sevlyar/go-daemon"
 	"golang.org/x/net/html"
 )
 
@@ -25,6 +27,7 @@ type Downloader struct {
 	ConvertLinks bool
 	RejectFiles  string
 	ExcludeDirs  string
+	Flags        *utils.Flags
 }
 
 // type Options struct {
@@ -36,7 +39,7 @@ type Downloader struct {
 
 // NewDownloader creates a new downloader with additional options
 
-func NewDownloader(destDir string, rateLimit int64, mirror, convertLinks bool, RejectFiles string, ExcludeDirs string) *Downloader {
+func NewDownloader(destDir string, rateLimit int64, mirror, convertLinks bool, RejectFiles string, ExcludeDirs string, flags utils.Flags) *Downloader {
 	return &Downloader{
 		DestDir:      destDir,
 		RateLimit:    rateLimit,
@@ -44,16 +47,17 @@ func NewDownloader(destDir string, rateLimit int64, mirror, convertLinks bool, R
 		ConvertLinks: convertLinks,
 		RejectFiles:  RejectFiles,
 		ExcludeDirs:  ExcludeDirs,
+		Flags:        &flags,
 	}
 }
 
-func (d *Downloader) Download(url string) error {
+func (d *Downloader) Download(url string, outputname string) error {
 	startTime := time.Now()
 
 	if d.Mirror {
 		return d.mirrorSite(url)
 	}
-	// Configuration du client HTTP : içi on configure l'en-tête User-agent du package HTTP
+
 	client := &http.Client{
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {
 			return nil
@@ -64,7 +68,6 @@ func (d *Downloader) Download(url string) error {
 	if err != nil {
 		return fmt.Errorf("erreur lors de la création de la requête : %v", err)
 	}
-
 	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36")
 
 	resp, err := client.Do(req)
@@ -77,8 +80,23 @@ func (d *Downloader) Download(url string) error {
 		return fmt.Errorf("statut HTTP non valide : %s", resp.Status)
 	}
 
+	var validname string
 	fileName := filepath.Base(url)
-	filePath := filepath.Join(d.DestDir, fileName)
+	if outputname == "" {
+		validname = fileName
+	} else {
+		validname = outputname
+	}
+
+	if strings.HasPrefix(d.DestDir, "~") {
+		dd, rr := os.UserHomeDir()
+		if rr != nil {
+			return rr
+		}
+		temp := strings.Split(d.DestDir, "/")[0]
+		d.DestDir = strings.Replace(d.DestDir, temp, dd, 1)
+	}
+	filePath := filepath.Join(d.DestDir, validname)
 
 	out, err := os.Create(filePath)
 	if err != nil {
@@ -86,30 +104,82 @@ func (d *Downloader) Download(url string) error {
 	}
 	defer out.Close()
 
-	progressBar := NewProgressBar(resp.ContentLength, fileName, float64(d.RateLimit*1024))
+	progressBar := NewProgressBar(resp.ContentLength, fileName, float64(d.RateLimit*1024), *d.Flags)
 
-	var reader io.Reader = resp.Body
-	if d.RateLimit > 0 {
-		rateLimitReader := multiple.NewRateLimitedReader(resp.Body, int64(d.RateLimit*1024))
-		reader = io.TeeReader(rateLimitReader, progressBar)
+	if d.Flags != nil && d.Flags.Background {
+		context := &daemon.Context{
+			// PidFileName: "downloader.pid",
+			PidFilePerm: 0644,
+			LogFileName: "wget-log",
+			LogFilePerm: 0640,
+			WorkDir:     ".",
+			Umask:       027,
+			// Args:        []string{d.Flags.Background},
+		}
+
+		P, err := context.Reborn()
+		if err != nil {
+			return fmt.Errorf("erreur lors du démarrage du démon : %v", err)
+		}
+		if P != nil {
+			return nil // Parent process exits
+		}
+		defer context.Release()
+
+		file, err := os.OpenFile("wget-log", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
+		if err != nil {
+			return fmt.Errorf("failed to open log file: %v", err)
+		}
+		defer file.Close()
+
+		// logger := log.New(file, "INFO: ", log.Ldate|log.Ltime|log.Lshortfile)
+
+		var reader io.Reader = resp.Body
+		if d.RateLimit > 0 {
+			rateLimitReader := multiple.NewRateLimitedReader(resp.Body, int64(d.RateLimit*1024))
+			reader = io.TeeReader(rateLimitReader, progressBar)
+		} else {
+			reader = io.TeeReader(resp.Body, progressBar)
+		}
+
+		_, err = io.Copy(out, reader)
+		if err != nil {
+			fmt.Printf("Erreur lors de la copie du contenu : %v", err)
+			return err
+		}
+
+		progressBar.Finish()
+
+		endTime := time.Now()
+		fmt.Printf("\nDébut du téléchargement : %s\n", startTime.Format("2006-01-02 15:04:05"))
+		fmt.Printf("Fin du téléchargement : %s\n", endTime.Format("2006-01-02 15:04:05"))
+		fmt.Printf("Statut HTTP : %s\n", resp.Status)
+		fmt.Printf("Taille du fichier : %d octets (%.2f MB)\n", resp.ContentLength, float64(resp.ContentLength)/1048576)
+		fmt.Printf("Fichier sauvegardé : %s\n", filePath)
+		fmt.Println("Téléchargement terminé.")
 	} else {
-		reader = io.TeeReader(resp.Body, progressBar)
+		var reader io.Reader = resp.Body
+		if d.RateLimit > 0 {
+			rateLimitReader := multiple.NewRateLimitedReader(resp.Body, int64(d.RateLimit*1024))
+			reader = io.TeeReader(rateLimitReader, progressBar)
+		} else {
+			reader = io.TeeReader(resp.Body, progressBar)
+		}
+
+		_, err = io.Copy(out, reader)
+		if err != nil {
+			return fmt.Errorf("erreur lors de la copie du contenu : %v", err)
+		}
+
+		progressBar.Finish()
+		endTime := time.Now()
+
+		fmt.Printf("\nDébut du téléchargement : %s\n", startTime.Format("2006-01-02 15:04:05"))
+		fmt.Printf("Fin du téléchargement : %s\n", endTime.Format("2006-01-02 15:04:05"))
+		fmt.Printf("Statut HTTP : %s\n", resp.Status)
+		fmt.Printf("Taille du fichier : %d octets (%.2f MB)\n", resp.ContentLength, float64(resp.ContentLength)/1048576)
+		fmt.Printf("Fichier sauvegardé : %s\n", filePath)
 	}
-
-	_, err = io.Copy(out, reader)
-	if err != nil {
-		return fmt.Errorf("erreur lors de la copie du contenu : %v", err)
-	}
-
-	progressBar.Finish() // Appel de la nouvelle méthode Finish()
-
-	endTime := time.Now()
-
-	fmt.Printf("\nDébut du téléchargement : %s\n", startTime.Format("2006-01-02 15:04:05"))
-	fmt.Printf("Fin du téléchargement : %s\n", endTime.Format("2006-01-02 15:04:05"))
-	fmt.Printf("Statut HTTP : %s\n", resp.Status)
-	fmt.Printf("Taille du fichier : %d octets (%.2f MB)\n", resp.ContentLength, float64(resp.ContentLength)/1048576)
-	fmt.Printf("Fichier sauvegardé : %s\n", filePath)
 
 	return nil
 }

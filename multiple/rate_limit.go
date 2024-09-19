@@ -14,7 +14,8 @@ type RateLimitedReader struct {
 	ticker    *time.Ticker
 }
 
-func NewRateLimitedReader(reader io.Reader, rateLimit int64) *RateLimitedReader {
+func 
+NewRateLimitedReader(reader io.Reader, rateLimit int64) *RateLimitedReader {
 	return &RateLimitedReader{
 		reader:    reader,
 		rateLimit: rateLimit,

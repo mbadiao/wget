@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"tidy/utils"
 	"time"
 
 	"golang.org/x/term"
@@ -17,16 +18,18 @@ type ProgressBar struct {
 	FileName   string
 	IsComplete bool
 	RateLimit  float64 // New field to store the rate limit in bytes per second
+	Flags      *utils.Flags
 }
 
-func NewProgressBar(total int64, fileName string, rateLimit float64) *ProgressBar {
+func NewProgressBar(total int64, fileName string, rateLimit float64, flags utils.Flags) *ProgressBar {
 	return &ProgressBar{
-		Total:     total,
-		StartTime: time.Now(),
-		LastTime:  time.Now(),
-		FileName:  fileName,
+		Total:      total,
+		StartTime:  time.Now(),
+		LastTime:   time.Now(),
+		FileName:   fileName,
 		IsComplete: false,
-		RateLimit: rateLimit,
+		RateLimit:  rateLimit,
+		Flags:      &flags,
 	}
 }
 
@@ -101,16 +104,18 @@ func (pb *ProgressBar) update(force bool) {
 		remainingStr = fmt.Sprintf("%ds", remaining)
 	}
 
-	fmt.Printf("\r%s %3d%%[%s] %6.2fM %s %s",
-		pb.FileName,
-		percent,
-		bar,
-		totalMB,
-		speedStr,
-		remainingStr)
+	if !pb.Flags.Background {
+		fmt.Printf("\r%s %3d%%[%s] %6.2fM %s %s",
+			pb.FileName,
+			percent,
+			bar,
+			totalMB,
+			speedStr,
+			remainingStr)
 
-	if pb.IsComplete {
-		fmt.Printf("\r%s 100%%[%s] %6.2fM %s 0s\n", pb.FileName, strings.Repeat("=", availableWidth) + ">", totalMB, speedStr)
+		if pb.IsComplete {
+			fmt.Printf("\r%s 100%%[%s] %6.2fM %s 0s\n", pb.FileName, strings.Repeat("=", availableWidth)+">", totalMB, speedStr)
+		}
 	}
 }
 
