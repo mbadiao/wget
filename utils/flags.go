@@ -87,13 +87,6 @@ func ParseFlags() (*Flags, error) {
 	flags.RejectFiles = *rejectFlag
 	flags.ExcludeDirs = *excludeFlag
 
-	// Parse reject and exclude flags
-	// fmt.Println("herer", flags.RejectFiles)
-
-	// if *rejectFlag != "" {
-	// 	flags.RejectFiles = strings.Split(*rejectFlag, ",")
-	// }
-
 	// Parse rate limit
 	rateLimit, err := multiple.ParseRateLimit(*rateLimitStr)
 	if err != nil {

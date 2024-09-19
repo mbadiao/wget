@@ -148,23 +148,17 @@ func (d *Downloader) Download(url string, outputname string) error {
 	endTime := time.Now()
 
 	fmt.Printf("\nDébut du téléchargement : %s\n", startTime.Format("2006-01-02 15:04:05"))
-	fmt.Printf("Fin du téléchargement : %s\n", endTime.Format("2006-01-02 15:04:05"))
-	fmt.Printf("Statut HTTP : %s\n", resp.Status)
-	fmt.Printf("Taille du fichier : %d octets (%.2f MB)\n", resp.ContentLength, float64(resp.ContentLength)/1048576)
-	fmt.Printf("Fichier sauvegardé : %s\n", filePath)
+	fmt.Printf("Sending request, awaiting response... status %s\n", resp.Status)
+	fmt.Printf("Content size : %d octets [%.2f MB]\n", resp.ContentLength, float64(resp.ContentLength)/1048576)
+	fmt.Printf("saving file to: %s\n", filePath)
+	fmt.Printf("Downloaded URL: %s\n", url)
+	fmt.Printf("Finished at  : %s\n", endTime.Format("2006-01-02 15:04:05"))
 	if !d.Flags.Background {
 		fmt.Println("Téléchargement terminé.")
 	}
 
 	return nil
 }
-
-// func (d *Downloader) DownloadMirror(urlStr string) error {
-// 	if d.Options.Mirror {
-// 		return d.mirrorSite(urlStr)
-// 	}
-// 	return fmt.Errorf("non-mirror download not implemented")
-// }
 
 func (d *Downloader) ShouldReject(path string, rejectedpath []string) bool {
 	// fmt.Println("fjdksqlm", d.RejectFiles)
